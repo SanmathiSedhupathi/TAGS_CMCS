@@ -16,9 +16,22 @@
       "output": "single",
       "favicon": "./assets/images/icon.png"
     },
-    "plugins": ["expo-router", "expo-font", "expo-web-browser"],
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-web-browser"
+    ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "d7847bf6-d2b8-4ad7-83d3-88de15a3b52c"
+      }
+    },
+    "android": {
+      "package": "com.sanmathi.tags"
     }
   }
 }
