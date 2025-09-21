@@ -17,7 +17,7 @@ import { MapPin, Calendar, Clock, ChevronDown, Search, MapPin as MapPinIcon } fr
 import { ActivityService } from '@/services/activity.service';
 import { useAuth } from '@/contexts/AuthContext';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import MapView, { Marker, MapPressEvent } from 'react-native-maps';
+import MapView, { Marker, MapPressEvent, UrlTile } from 'react-native-maps';
 import * as Location from 'expo-location';
 
 export default function CreateScreen() {
@@ -114,10 +114,24 @@ export default function CreateScreen() {
   const handleMapPress = async (e: MapPressEvent) => {
     const { latitude, longitude } = e.nativeEvent.coordinate;
     setMarker({ latitude, longitude });
-  
+
     const baseUrl = `https://nominatim.openstreetmap.org`;
-    const reverseUrl = `${baseUrl}/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`;
-  
+    const reverseUrl = `https://us1.locationiq.com/v1/reverse?key=pk.58dc086bd246b672188872db1e596f87&lat=${latitude}&lon=${longitude}&format=json`;
+
+    try {
+      const res = await fetch(reverseUrl);
+      const data = await res.json();
+
+      let placeName = data.display_name || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+
+      setLocation(placeName);
+      setSearchQuery(placeName);
+    } catch (error) {
+      console.log('Reverse geocode error:', error);
+      setLocation(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+    }
+
+
     try {
       const res = await fetch(reverseUrl, {
         headers: {
@@ -125,23 +139,23 @@ export default function CreateScreen() {
         },
       });
       const data = await res.json();
-  
+
       let placeName = '';
-  
+
       if (data?.name) {
         placeName = data.name;
       } else if (data?.address) {
         const addr = data.address;
         placeName = addr.school || addr.college || addr.university ||
-                    addr.cafe || addr.restaurant || addr.bar ||
-                    addr.pub || addr.fast_food || addr.shop ||
-                    addr.road || addr.neighbourhood || addr.suburb ||
-                    addr.village || addr.town || addr.city || '';
+          addr.cafe || addr.restaurant || addr.bar ||
+          addr.pub || addr.fast_food || addr.shop ||
+          addr.road || addr.neighbourhood || addr.suburb ||
+          addr.village || addr.town || addr.city || '';
       }
-  
+
       // Fallback: If still no good name → do a nearby search
       if (!placeName) {
-        const searchUrl = `${baseUrl}/search?format=json&addressdetails=1&limit=1&extratags=1&lat=${latitude}&lon=${longitude}&radius=30`; 
+        const searchUrl = `${baseUrl}/search?format=json&addressdetails=1&limit=1&extratags=1&lat=${latitude}&lon=${longitude}&radius=30`;
         const searchRes = await fetch(searchUrl, {
           headers: {
             'User-Agent': 'YourApp/1.0 (your@email.com)',
@@ -152,23 +166,23 @@ export default function CreateScreen() {
           placeName = searchData[0].display_name;
         }
       }
-  
+
       // Final fallback:
       if (!placeName) {
         placeName = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
       }
-  
+
       setLocation(placeName);
       setSearchQuery(placeName);
-  
+
     } catch (error) {
       console.log('Reverse geocode error:', error);
       setLocation(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
     }
   };
-  
-  
-  
+
+
+
 
   const handleMyLocation = async () => {
     let { status } = await Location.requestForegroundPermissionsAsync();
@@ -176,19 +190,38 @@ export default function CreateScreen() {
       Alert.alert('Permission denied', 'Location permission is required to use this feature.');
       return;
     }
+
     let loc = await Location.getCurrentPositionAsync({});
+    const latitude = loc.coords.latitude;
+    const longitude = loc.coords.longitude;
+
     setRegion({
-      latitude: loc.coords.latitude,
-      longitude: loc.coords.longitude,
+      latitude,
+      longitude,
       latitudeDelta: 0.01,
       longitudeDelta: 0.01,
     });
-    setMarker({
-      latitude: loc.coords.latitude,
-      longitude: loc.coords.longitude,
-    });
-    setLocation(`${loc.coords.latitude.toFixed(5)}, ${loc.coords.longitude.toFixed(5)}`);
+    setMarker({ latitude, longitude });
+
+    try {
+      // Reverse geocode with LocationIQ
+      const reverseUrl = `https://us1.locationiq.com/v1/reverse?key=pk.58dc086bd246b672188872db1e596f87&lat=${latitude}&lon=${longitude}&format=json`;
+      const res = await fetch(reverseUrl);
+      const data = await res.json();
+
+      let placeName = data.display_name || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+
+      // ✅ update both location (for saving) and searchQuery (for input box)
+      setLocation(placeName);
+      setSearchQuery(placeName);
+    } catch (error) {
+      console.log('Reverse geocode error:', error);
+      const coordsText = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+      setLocation(coordsText);
+      setSearchQuery(coordsText);
+    }
   };
+
 
   const handleCreateActivity = async () => {
     if (!title || !description || !date || !time || !location) {
@@ -215,7 +248,7 @@ export default function CreateScreen() {
           : { name: location, latitude: 40.7128, longitude: -74.0060 },
         createdBy: user.uid,
       });
-      
+
       Alert.alert('Success', 'Activity created successfully!');
       router.back();
     } catch (error: any) {
@@ -230,15 +263,15 @@ export default function CreateScreen() {
       setSuggestions([]);
       return;
     }
-  
+
     const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&countrycodes=in&q=${encodeURIComponent(
       query
     )}`;
-  
+
     try {
       const res = await fetch(url, {
         headers: {
-          'User-Agent': 'YourApp/1.0 (your@email.com)',
+          'User-Agent': 'TAGSApp/1.0 (contact: youremail@example.com)',
         },
       });
       const data = await res.json();
@@ -248,7 +281,7 @@ export default function CreateScreen() {
       setSuggestions([]);
     }
   };
-  
+
 
   const handleSearchChange = (text: string) => {
     setSearchQuery(text);
@@ -285,7 +318,7 @@ export default function CreateScreen() {
     setSuggestions([]);
     setSearchQuery(item.display_name);
   };
-  
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -493,42 +526,25 @@ export default function CreateScreen() {
           )}
 
           <View style={styles.mapContainer}>
-            <MapView
-              style={{ flex: 1 }}
-              region={region}
-              onPress={handleMapPress}
-            >
-              {suggestions.map((item, idx) => (
-                item.lat && item.lon && (
-                  <Marker
-                    key={idx}
-                    coordinate={{
-                      latitude: parseFloat(item.lat),
-                      longitude: parseFloat(item.lon),
-                    }}
-                    pinColor="#6366f1" // Different color for suggestions
-                    onPress={() => {
-                      setMarker({
-                        latitude: parseFloat(item.lat),
-                        longitude: parseFloat(item.lon),
-                      });
-                      setLocation(item.display_name);
-                      setSearchQuery(item.display_name);
-                      setRegion({
-                        ...region,
-                        latitude: parseFloat(item.lat),
-                        longitude: parseFloat(item.lon),
-                      });
-                    }}
-                  />
-                )
-              ))}
-              {marker && <Marker coordinate={marker} />}
-            </MapView>
+           <MapView
+  style={{ flex: 1 }}
+  region={region}
+  onPress={handleMapPress}
+  showsUserLocation={true}
+>
+  <UrlTile
+    urlTemplate="https://tile.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+    maximumZ={19}
+  />
+  {marker && <Marker coordinate={marker} />}
+</MapView>
+
+
+
           </View>
         </View>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.createButton, loading && styles.createButtonDisabled]}
           onPress={handleCreateActivity}
           disabled={loading}
