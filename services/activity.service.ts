@@ -4,7 +4,8 @@ import {
   getDocs, 
   doc, 
   updateDoc, 
-  deleteDoc,
+  arrayUnion, 
+  arrayRemove,
   query,
   where,
   orderBy 
@@ -50,9 +51,19 @@ export class ActivityService {
     })) as Activity[];
   }
 
+  // Join activity
   static async joinActivity(activityId: string, userId: string): Promise<void> {
     const activityRef = doc(db, 'activities', activityId);
-    // This would require getting current participants and adding the user
-    // Implementation depends on your specific requirements
+    await updateDoc(activityRef, {
+      participants: arrayUnion(userId)
+    });
+  }
+
+  // Leave activity
+  static async leaveActivity(activityId: string, userId: string): Promise<void> {
+    const activityRef = doc(db, 'activities', activityId);
+    await updateDoc(activityRef, {
+      participants: arrayRemove(userId)
+    });
   }
 }
